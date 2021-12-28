@@ -301,10 +301,14 @@ add_definitions(-DOPENXR_HAVE_COMMON_CONFIG)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(CheckSymbolExists)
-#check_symbol_exists(timespec_get time.h HAVE_TIMESPEC_GET)
-#if(HAVE_TIMESPEC_GET)
+check_symbol_exists(timespec_get time.h HAVE_TIMESPEC_GET)
+if(HAVE_TIMESPEC_GET)
     add_definitions(-DXR_USE_TIMESPEC)
-#endif()
+    message(WARNING "timespec Found")
+else()
+    # add_definitions(-DXR_USE_TIMESPEC)
+    message(WARNING "timespec Not Found")
+endif()
 
 # Set up the OpenXR version variables, used by several targets in this project.
 include(${CMAKE_CURRENT_SOURCE_DIR}/version.cmake)

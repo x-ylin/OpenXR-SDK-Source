@@ -224,6 +224,10 @@ struct OpenXrProgram : IOpenXrProgram {
         std::transform(graphicsExtensions.begin(), graphicsExtensions.end(), std::back_inserter(extensions),
                        [](const std::string& ext) { return ext.c_str(); });
 
+        // extensions.push_back(timeExtensionName);
+        const std::vector<std::string> timingExtensions = {XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME};
+        std::transform(timingExtensions.begin(), timingExtensions.end(), std::back_inserter(extensions), [](const std::string& ext) { return ext.c_str(); });
+        
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
         createInfo.next = m_platformPlugin->GetInstanceCreateExtension();
         createInfo.enabledExtensionCount = (uint32_t)extensions.size();
