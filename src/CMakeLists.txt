@@ -306,7 +306,7 @@ if(HAVE_TIMESPEC_GET)
     add_definitions(-DXR_USE_TIMESPEC)
     message(WARNING "timespec Found")
 else()
-    # add_definitions(-DXR_USE_TIMESPEC)
+    add_definitions(-DXR_USE_TIMESPEC)
     message(WARNING "timespec Not Found")
 endif()
 
