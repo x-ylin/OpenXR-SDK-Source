@@ -24,6 +24,7 @@
 
 *.png     binary
 *.pdf     binary
+*.apk     binary
 
 # Shell scripts that don't end in .sh
 specification/makeAllExts           eol=lf
