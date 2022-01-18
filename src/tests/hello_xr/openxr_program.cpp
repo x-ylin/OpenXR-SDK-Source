@@ -11,10 +11,16 @@
 #include "openxr_program.h"
 #include <common/xr_linear.h>
 #include <array>
+#include <queue>
 #include <cmath>
 
-namespace {
+#include <fstream>
+#include <GLES3/gl32.h>
+#include <GLES3/gl3ext.h>
+#include <GLES2/gl2ext.h>
 
+namespace {
+    
 #if !defined(XR_USE_PLATFORM_WIN32)
 #define strcpy_s(dest, source) strncpy((dest), (source), sizeof(dest))
 #endif
@@ -625,7 +631,6 @@ struct OpenXrProgram : IOpenXrProgram {
         m_configViews.resize(viewCount, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
         CHECK_XRCMD(xrEnumerateViewConfigurationViews(m_instance, m_systemId, m_viewConfigType, viewCount, &viewCount,
                                                       m_configViews.data()));
-
         // Create and cache view buffer for xrLocateViews later.
         m_views.resize(viewCount, {XR_TYPE_VIEW});
 
@@ -637,9 +642,14 @@ struct OpenXrProgram : IOpenXrProgram {
             std::vector<int64_t> swapchainFormats(swapchainFormatCount);
             CHECK_XRCMD(xrEnumerateSwapchainFormats(m_session, (uint32_t)swapchainFormats.size(), &swapchainFormatCount,
                                                     swapchainFormats.data()));
+            
             CHECK(swapchainFormatCount == swapchainFormats.size());
+            LOGE("%u swapchain formats supported", swapchainFormatCount);
+            for (uint32_t i = 0; i < swapchainFormatCount; i++) {
+                LOGE("%ld", swapchainFormats[i]);
+            }
             m_colorSwapchainFormat = m_graphicsPlugin->SelectColorSwapchainFormat(swapchainFormats);
-
+            
             // Print swapchain formats and the selected one.
             {
                 std::string swapchainFormatsString;
@@ -668,8 +678,8 @@ struct OpenXrProgram : IOpenXrProgram {
                 XrSwapchainCreateInfo swapchainCreateInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
                 swapchainCreateInfo.arraySize = 1;
                 swapchainCreateInfo.format = m_colorSwapchainFormat;
-                swapchainCreateInfo.width = vp.recommendedImageRectWidth;
-                swapchainCreateInfo.height = vp.recommendedImageRectHeight;
+                swapchainCreateInfo.width = SwapchainWidth;
+                swapchainCreateInfo.height = SwapchainHeight;
                 swapchainCreateInfo.mipCount = 1;
                 swapchainCreateInfo.faceCount = 1;
                 swapchainCreateInfo.sampleCount = m_graphicsPlugin->GetSupportedSwapchainSampleCount(vp);
@@ -909,8 +919,25 @@ struct OpenXrProgram : IOpenXrProgram {
         CHECK_XRCMD(xrEndFrame(m_session, &frameEndInfo));
     }
 
+    struct localXrViews_t {
+        XrTime time;
+        XrPosef lpose;
+        XrPosef rpose;
+        XrFovf lfov;
+        XrFovf rfov;
+    };
+    std::queue<localXrViews_t> localViewsBuffer;
+
+    uint64_t renderCount = 0;
+    GLuint framebufferDebug;
+    uint8_t* imageDebug;
+    std::ofstream dumpStream;
     bool RenderLayer(XrTime predictedDisplayTime, std::vector<XrCompositionLayerProjectionView>& projectionLayerViews,
                      XrCompositionLayerProjection& layer) {
+        if (++renderCount % 90 == 0) {
+            LOGE("RenderLayer-%lu", renderCount);
+        }
+        
         XrResult res;
 
         XrViewState viewState{XR_TYPE_VIEW_STATE};
@@ -994,13 +1021,37 @@ struct OpenXrProgram : IOpenXrProgram {
             projectionLayerViews[i].fov = m_views[i].fov;
             projectionLayerViews[i].subImage.swapchain = viewSwapchain.handle;
             projectionLayerViews[i].subImage.imageRect.offset = {0, 0};
-            projectionLayerViews[i].subImage.imageRect.extent = {viewSwapchain.width, viewSwapchain.height};
-
+            projectionLayerViews[i].subImage.imageRect.extent = {SubmittedWidth, SubmittedHeight};
+            
+            // auto fov = m_views[i].fov;
+            // LOGE("Fov: (%f, %f, %f, %f)", fov.angleLeft, fov.angleRight, fov.angleDown, fov.angleUp);
+            
             const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
             m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
 
             XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
             CHECK_XRCMD(xrReleaseSwapchainImage(viewSwapchain.handle, &releaseInfo));
+            
+            if (renderCount == 900) {
+                imageDebug = new uint8_t [viewSwapchain.width * viewSwapchain.height * 4];
+                glGenFramebuffers(1, &framebufferDebug);
+                glBindFramebuffer(GL_FRAMEBUFFER, framebufferDebug);
+                const uint32_t colorTexture = reinterpret_cast<const XrSwapchainImageOpenGLESKHR*>(swapchainImage)->image;
+                glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture, 0);
+                glReadPixels(0, 0, viewSwapchain.width, viewSwapchain.height, GL_RGBA, GL_UNSIGNED_BYTE, imageDebug);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glFinish();
+                if (i == 0) {
+                    dumpStream.open("/data/data/com.khronos.openxr.hello_xr.opengles/files/image-hmd-left.txt");
+                    LOGE("Swapchain resolution: %d x %d", viewSwapchain.width, viewSwapchain.height);
+                } else {
+                    dumpStream.open("/data/data/com.khronos.openxr.hello_xr.opengles/files/image-hmd-right.txt");
+                }
+                
+                dumpStream.write(reinterpret_cast<const char*>(imageDebug), viewSwapchain.width * viewSwapchain.height * 4);
+                dumpStream.close();
+                LOGE("Dumped");
+            }
         }
 
         layer.space = m_appSpace;

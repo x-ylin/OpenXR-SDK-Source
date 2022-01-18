@@ -279,12 +279,18 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glBindFramebuffer(GL_FRAMEBUFFER, m_swapchainFramebuffer);
 
         const uint32_t colorTexture = reinterpret_cast<const XrSwapchainImageOpenGLESKHR*>(swapchainImage)->image;
-
+        /*
         glViewport(static_cast<GLint>(layerView.subImage.imageRect.offset.x),
                    static_cast<GLint>(layerView.subImage.imageRect.offset.y),
                    static_cast<GLsizei>(layerView.subImage.imageRect.extent.width),
                    static_cast<GLsizei>(layerView.subImage.imageRect.extent.height));
-
+        */
+        glViewport(0,
+                   0,
+                   RenderedWidth,
+                   RenderedHeight);
+        // LOGE("Viewport: (%d, %d)", RenderedWidth, RenderedHeight);
+        
         glFrontFace(GL_CW);
         glCullFace(GL_BACK);
         glEnable(GL_CULL_FACE);
