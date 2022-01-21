@@ -111,6 +111,9 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glGetIntegerv(GL_MINOR_VERSION, &minor);
 
         const XrVersion desiredApiVersion = XR_MAKE_VERSION(major, minor, 0);
+        LOGE("Graphics Requirement Minimum Version: %0lx", graphicsRequirements.minApiVersionSupported);
+        LOGE("Graphics Requirement Maximum Version: %0lx", graphicsRequirements.maxApiVersionSupported);
+        LOGE("Graphics Current Version: %lx", desiredApiVersion);
         if (graphicsRequirements.minApiVersionSupported > desiredApiVersion) {
             THROW("Runtime does not support desired Graphics API and/or version");
         }
