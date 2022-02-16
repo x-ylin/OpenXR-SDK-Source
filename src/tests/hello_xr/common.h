@@ -99,9 +99,9 @@ constexpr size_t ArraySize(const T (&/*unused*/)[Size]) noexcept {
 #include "check.h"
 
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Yaosen", __VA_ARGS__)
-#define SwapchainWidth  2500
-#define SwapchainHeight 2500
-#define RenderedWidth 2500
-#define RenderedHeight 2500
-#define SubmittedWidth 1500
-#define SubmittedHeight 2500
+#define SwapchainWidth  1700
+#define SwapchainHeight 1700
+#define RenderedWidth 1700
+#define RenderedHeight 1700
+#define SubmittedWidth 1700
+#define SubmittedHeight 1700
