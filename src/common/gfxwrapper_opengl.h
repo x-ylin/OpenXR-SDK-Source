@@ -109,6 +109,9 @@ WORK ITEMS
 
 ================================================================================================
 */
+#if !defined(LOGE)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Yaosen", __VA_ARGS__)
+#endif
 
 #if !defined(KSGRAPHICSWRAPPER_OPENGL_H)
 #define KSGRAPHICSWRAPPER_OPENGL_H

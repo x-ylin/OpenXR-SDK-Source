@@ -10,6 +10,8 @@
 #include "graphicsplugin.h"
 #include "openxr_program.h"
 
+#include <unistd.h>
+
 namespace {
 
 #ifdef XR_USE_PLATFORM_ANDROID
@@ -181,63 +183,114 @@ void android_main(struct android_app* app) {
         bool requestRestart = false;
         bool exitRenderLoop = false;
 
-        // Create platform-specific implementation.
-        std::shared_ptr<IPlatformPlugin> platformPlugin = CreatePlatformPlugin(options, data);
-        // Create graphics API implementation.
-        std::shared_ptr<IGraphicsPlugin> graphicsPlugin = CreateGraphicsPlugin(options, platformPlugin);
+        
+        // std::shared_ptr<IPlatformPlugin> platformPlugin;
+        // std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
+        // std::shared_ptr<IOpenXrProgram> program;
+        std::atomic<bool> isXrRunning{false};
+        uint32_t sessionID = 0;
+        
+        auto runOpenXr = [&]() {
+            sessionID++;
+            LOGE("================Session-%u================", sessionID);
+            // Create platform-specific implementation.
+            std::shared_ptr<IPlatformPlugin> platformPlugin = CreatePlatformPlugin(options, data);
+            // Create graphics API implementation.
+            std::shared_ptr<IGraphicsPlugin> graphicsPlugin = CreateGraphicsPlugin(options, platformPlugin);
+            // Initialize the OpenXR program.
+            std::shared_ptr<IOpenXrProgram> program = CreateOpenXrProgram(options, platformPlugin, graphicsPlugin);
 
-        // Initialize the OpenXR program.
-        std::shared_ptr<IOpenXrProgram> program = CreateOpenXrProgram(options, platformPlugin, graphicsPlugin);
+            // Initialize the loader for this platform
+            PFN_xrInitializeLoaderKHR initializeLoader = nullptr;
+            if (XR_SUCCEEDED(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction *) (&initializeLoader)))) {
+                XrLoaderInitInfoAndroidKHR loaderInitInfoAndroid;
+                memset(&loaderInitInfoAndroid, 0, sizeof(loaderInitInfoAndroid));
+                loaderInitInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
+                loaderInitInfoAndroid.next = NULL;
+                loaderInitInfoAndroid.applicationVM = app->activity->vm;
+                loaderInitInfoAndroid.applicationContext = app->activity->clazz;
+                initializeLoader((const XrLoaderInitInfoBaseHeaderKHR *) &loaderInitInfoAndroid);
+            }
 
-        // Initialize the loader for this platform
-        PFN_xrInitializeLoaderKHR initializeLoader = nullptr;
-        if (XR_SUCCEEDED(
-                xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)(&initializeLoader)))) {
-            XrLoaderInitInfoAndroidKHR loaderInitInfoAndroid;
-            memset(&loaderInitInfoAndroid, 0, sizeof(loaderInitInfoAndroid));
-            loaderInitInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-            loaderInitInfoAndroid.next = NULL;
-            loaderInitInfoAndroid.applicationVM = app->activity->vm;
-            loaderInitInfoAndroid.applicationContext = app->activity->clazz;
-            initializeLoader((const XrLoaderInitInfoBaseHeaderKHR*)&loaderInitInfoAndroid);
-        }
-
-        program->CreateInstance();
-        program->InitializeSystem();
-        program->InitializeSession();
-        program->CreateSwapchains();
-
-        while (app->destroyRequested == 0) {
-            // Read all pending events.
-            for (;;) {
-                int events;
-                struct android_poll_source* source;
-                // If the timeout is zero, returns immediately without blocking.
-                // If the timeout is negative, waits indefinitely until an event appears.
-                const int timeoutMilliseconds =
-                    (!appState.Resumed && !program->IsSessionRunning() && app->destroyRequested == 0) ? -1 : 0;
-                if (ALooper_pollAll(timeoutMilliseconds, nullptr, &events, (void**)&source) < 0) {
+            program->CreateInstance();
+            program->InitializeSystem();
+            program->InitializeSession();
+            program->CreateSwapchains();
+            
+            uint64_t xrCount = 0;
+            while (true) {
+                if (xrCount == 0) {
+                    LOGE("xr starts running...");
+                }
+                
+                xrCount++;
+                if (xrCount == 90 * 30) {
+                    program->Stop();
+                    LOGE("stop requested.");
+                }
+    
+                /*
+                if (xrCount == 90 * 30 + 90 * 20) {
+                    program->Exit();
+                    LOGE("exit requested.");
+                }
+                */
+    
+                program->PollEvents(&exitRenderLoop, &requestRestart);
+                if (!program->IsSessionRunning()) {
+                    // Throttle loop since xrWaitFrame won't be called.
+                    // std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                    // LOGE("session is not running...");
+                    // continue;
+                } else {
+                    program->PollActions();
+                    program->RenderFrame();
+                }
+                
+                if (requestRestart) {
+                    LOGE("about to restart...");
                     break;
                 }
-
-                // Process this event.
-                if (source != nullptr) {
-                    source->process(app, source);
+            }
+            
+            sleep(3);
+            isXrRunning = false;
+            LOGE("%s:%u", __FILE__, __LINE__);
+        };
+        
+        isXrRunning = false;
+        std::shared_ptr<std::thread> xrMainLoop;
+        
+        while (app->destroyRequested == 0) {
+            // Read all pending events.
+            int events;
+            struct android_poll_source *source;
+            
+            // If the timeout is zero, returns immediately without blocking.
+            // If the timeout is negative, waits indefinitely until an event appears.
+            if (ALooper_pollAll(100, nullptr, &events, (void **) &source) < 0) {
+                // LOGE("invalid event!");
+                // break;
+            }
+            
+            // Process this event.
+            if (source != nullptr) {
+                source->process(app, source);
+            }
+            
+            if (!isXrRunning) {
+                if (xrMainLoop != nullptr) {
+                    if (xrMainLoop->joinable()) {
+                        xrMainLoop->join();
+                    }
                 }
+                xrMainLoop = std::make_shared<std::thread>(runOpenXr);
+                isXrRunning = true;
             }
-
-            program->PollEvents(&exitRenderLoop, &requestRestart);
-            if (!program->IsSessionRunning()) {
-                // Throttle loop since xrWaitFrame won't be called.
-                std::this_thread::sleep_for(std::chrono::milliseconds(250));
-                continue;
-            }
-
-            program->PollActions();
-            program->RenderFrame();
         }
-
+        
         app->activity->vm->DetachCurrentThread();
+        
     } catch (const std::exception& ex) {
         Log::Write(Log::Level::Error, ex.what());
     } catch (...) {

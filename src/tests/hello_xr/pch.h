@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-
+#define XR_USE_PLATFORM_ANDROID
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
@@ -109,3 +109,7 @@
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_reflection.h>
+
+#if !defined(LOGE)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Yaosen", __VA_ARGS__)
+#endif

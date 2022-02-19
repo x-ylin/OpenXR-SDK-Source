@@ -6,7 +6,7 @@
 
 struct IOpenXrProgram {
     virtual ~IOpenXrProgram() = default;
-
+    
     // Create an Instance and other basic instance-level initialization.
     virtual void CreateInstance() = 0;
 
@@ -24,6 +24,9 @@ struct IOpenXrProgram {
     // Process any events in the event queue.
     virtual void PollEvents(bool* exitRenderLoop, bool* requestRestart) = 0;
 
+    virtual void Stop() = 0;
+    virtual void Exit() = 0;
+    
     // Manage session lifecycle to track if RenderFrame should be called.
     virtual bool IsSessionRunning() const = 0;
 

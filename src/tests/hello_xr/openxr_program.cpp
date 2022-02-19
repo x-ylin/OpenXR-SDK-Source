@@ -122,9 +122,12 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::strin
 struct OpenXrProgram : IOpenXrProgram {
     OpenXrProgram(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin>& platformPlugin,
                   const std::shared_ptr<IGraphicsPlugin>& graphicsPlugin)
-        : m_options(options), m_platformPlugin(platformPlugin), m_graphicsPlugin(graphicsPlugin) {}
+        : m_options(options), m_platformPlugin(platformPlugin), m_graphicsPlugin(graphicsPlugin) {
+        LOGE("xr program constructed.");
+    }
 
     ~OpenXrProgram() override {
+        LOGE("destructing xr program...");
         if (m_input.actionSet != XR_NULL_HANDLE) {
             for (auto hand : {Side::LEFT, Side::RIGHT}) {
                 xrDestroySpace(m_input.handSpace[hand]);
@@ -144,13 +147,19 @@ struct OpenXrProgram : IOpenXrProgram {
             xrDestroySpace(m_appSpace);
         }
 
+        LOGE("%s:%u", __FILE__, __LINE__);
         if (m_session != XR_NULL_HANDLE) {
             xrDestroySession(m_session);
+            LOGE("%s:%u", __FILE__, __LINE__);
         }
 
+        LOGE("%s:%u", __FILE__, __LINE__);
         if (m_instance != XR_NULL_HANDLE) {
             xrDestroyInstance(m_instance);
+            LOGE("%s:%u", __FILE__, __LINE__);
         }
+
+        LOGE("xr program destructed.");
     }
 
     static void LogLayersAndExtensions() {
@@ -725,6 +734,7 @@ struct OpenXrProgram : IOpenXrProgram {
                     Log::Write(Log::Level::Warning, Fmt("XrEventDataInstanceLossPending by %lld", instanceLossPending.lossTime));
                     *exitRenderLoop = true;
                     *requestRestart = true;
+                    LOGE("instance loss pending");
                     return;
                 }
                 case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
@@ -747,6 +757,22 @@ struct OpenXrProgram : IOpenXrProgram {
         }
     }
 
+    void Stop() {
+        {
+            auto rc = xrRequestExitSession(m_session);
+            LOGE("%s:%u", __FILE__, __LINE__);
+            assert(rc == XR_SUCCESS);
+        }
+    }
+    
+    void Exit() {
+        {
+            auto rc = xrDestroySession(m_session);
+            LOGE("%s:%u", __FILE__, __LINE__);
+            assert(rc == XR_SUCCESS);
+        }
+    }
+    
     void HandleSessionStateChangedEvent(const XrEventDataSessionStateChanged& stateChangedEvent, bool* exitRenderLoop,
                                         bool* requestRestart) {
         const XrSessionState oldState = m_sessionState;
@@ -773,18 +799,21 @@ struct OpenXrProgram : IOpenXrProgram {
                 CHECK(m_session != XR_NULL_HANDLE);
                 m_sessionRunning = false;
                 CHECK_XRCMD(xrEndSession(m_session))
+                LOGE("session stopping...");
                 break;
             }
             case XR_SESSION_STATE_EXITING: {
                 *exitRenderLoop = true;
                 // Do not attempt to restart because user closed this session.
-                *requestRestart = false;
+                *requestRestart = true;
+                LOGE("session exiting...");
                 break;
             }
             case XR_SESSION_STATE_LOSS_PENDING: {
                 *exitRenderLoop = true;
                 // Poll for a new instance.
                 *requestRestart = true;
+                LOGE("session loss pending...");
                 break;
             }
             default:
@@ -828,7 +857,7 @@ struct OpenXrProgram : IOpenXrProgram {
         Log::Write(Log::Level::Info,
                    Fmt("%s action is bound to %s", actionName.c_str(), ((!sourceName.empty()) ? sourceName.c_str() : "nothing")));
     }
-
+    
     bool IsSessionRunning() const override { return m_sessionRunning; }
 
     bool IsSessionFocused() const override { return m_sessionState == XR_SESSION_STATE_FOCUSED; }

@@ -1750,6 +1750,7 @@ void ksGpuContext_Destroy(ksGpuContext *context) {
     }
     context->cglContext = nil;
 #elif defined(OS_ANDROID) || defined(OS_LINUX_WAYLAND)
+    LOGE("destroying GPU context...");
     if (context->display != 0) {
         EGL(eglMakeCurrent(context->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
     }
@@ -4257,6 +4258,7 @@ static bool ksGpuWindow_SupportedResolution(const int width, const int height) {
 
 void ksGpuWindow_Exit(ksGpuWindow *window) {
     // Call finish() on the activity and ksGpuWindow_ProcessEvents will handle the rest.
+    LOGE("finish activity.");
     ANativeActivity_finish(window->app->activity);
 }
 
