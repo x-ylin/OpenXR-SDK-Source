@@ -130,35 +130,44 @@ struct OpenXrProgram : IOpenXrProgram {
         LOGE("destructing xr program...");
         if (m_input.actionSet != XR_NULL_HANDLE) {
             for (auto hand : {Side::LEFT, Side::RIGHT}) {
-                xrDestroySpace(m_input.handSpace[hand]);
+                auto rc = xrDestroySpace(m_input.handSpace[hand]);
+                assert(rc == XR_SUCCESS);
             }
-            xrDestroyActionSet(m_input.actionSet);
+            auto rc = xrDestroyActionSet(m_input.actionSet);
+            assert(rc == XR_SUCCESS);
         }
 
         for (Swapchain swapchain : m_swapchains) {
-            xrDestroySwapchain(swapchain.handle);
+            auto rc = xrDestroySwapchain(swapchain.handle);
+            assert(rc == XR_SUCCESS);
         }
 
         for (XrSpace visualizedSpace : m_visualizedSpaces) {
-            xrDestroySpace(visualizedSpace);
+            auto rc = xrDestroySpace(visualizedSpace);
+            assert(rc == XR_SUCCESS);
         }
 
         if (m_appSpace != XR_NULL_HANDLE) {
-            xrDestroySpace(m_appSpace);
+            auto rc = xrDestroySpace(m_appSpace);
+            assert(rc == XR_SUCCESS);
         }
 
         LOGE("%s:%u", __FILE__, __LINE__);
         if (m_session != XR_NULL_HANDLE) {
-            xrDestroySession(m_session);
+            auto rc = xrDestroySession(m_session);
+            assert(rc == XR_SUCCESS);
             LOGE("%s:%u", __FILE__, __LINE__);
         }
 
         LOGE("%s:%u", __FILE__, __LINE__);
         if (m_instance != XR_NULL_HANDLE) {
-            xrDestroyInstance(m_instance);
+            auto rc = xrDestroyInstance(m_instance);
+            assert(rc == XR_SUCCESS);
             LOGE("%s:%u", __FILE__, __LINE__);
         }
 
+        m_graphicsPlugin->DestroyDevice();
+        
         LOGE("xr program destructed.");
     }
 

@@ -179,6 +179,18 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glVertexAttribPointer(m_vertexAttribColor, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex),
                               reinterpret_cast<const void*>(sizeof(XrVector3f)));
     }
+    
+    void DestroyDevice() {
+        {
+            auto rc = eglDestroySurface(window.display, window.context.mainSurface);
+            assert(rc == EGL_TRUE);
+        }
+        {
+            auto rc = eglDestroyContext(window.display, window.context.context);
+            assert(rc == EGL_TRUE);
+        }
+        LOGE("graphics cleaned up.");
+    }
 
     void CheckShader(GLuint shader) {
         GLint r = 0;

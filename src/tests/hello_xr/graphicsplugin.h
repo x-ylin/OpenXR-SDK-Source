@@ -19,6 +19,8 @@ struct IGraphicsPlugin {
     // Create an instance of this graphics api for the provided instance and systemId.
     virtual void InitializeDevice(XrInstance instance, XrSystemId systemId) = 0;
 
+    virtual void DestroyDevice() {};
+    
     // Select the preferred swapchain format from the list of available formats.
     virtual int64_t SelectColorSwapchainFormat(const std::vector<int64_t>& runtimeFormats) const = 0;
 

@@ -224,7 +224,7 @@ void android_main(struct android_app* app) {
                 }
                 
                 xrCount++;
-                if (xrCount == 90 * 30) {
+                if (xrCount == 90 * 60) {
                     program->Stop();
                     LOGE("stop requested.");
                 }
